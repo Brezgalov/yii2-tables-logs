@@ -93,7 +93,7 @@ class m200316_205222_brezgalov_table_logs extends Migration
             $this->table . '_FK_log_id',
             $this->table,
             'log_id',
-            'tables_logs',
+            $this->db->tablePrefix . 'tables_logs',
             'id',
             'cascade'
         );
@@ -108,19 +108,4 @@ class m200316_205222_brezgalov_table_logs extends Migration
 
         return false;
     }
-
-    /*
-    // Use up()/down() to run migration code without a transaction.
-    public function up()
-    {
-
-    }
-
-    public function down()
-    {
-        echo "m200316_205222_table_logs cannot be reverted.\n";
-
-        return false;
-    }
-    */
 }
