@@ -5,7 +5,7 @@ use yii\db\Migration;
 /**
  * Class m200316_205222_table_logs
  */
-class m200316_205222_table_logs extends Migration
+class m200316_205222_brezgalov_table_logs extends Migration
 {
     public $table = '';
 
@@ -20,7 +20,7 @@ class m200316_205222_table_logs extends Migration
 
     private function createLog()
     {
-        $this->table = 'tables_logs';
+        $this->table = $this->db->tablePrefix . 'tables_logs';
 
         $this->createTable($this->table, [
             'id'                => $this->primaryKey(),
@@ -68,7 +68,7 @@ class m200316_205222_table_logs extends Migration
 
     private function createFields()
     {
-        $this->table = 'tables_log_fields';
+        $this->table = $this->db->tablePrefix . 'tables_log_fields';
 
         $this->createTable($this->table, [
             'id'                => $this->primaryKey(),
