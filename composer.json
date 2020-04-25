@@ -1,0 +1,21 @@
+{
+  "name": "brezgalov/yii2-tables-logs",
+  "description": "logs for tables changes",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Oleg Brezgalov",
+      "email": "oleg.brezgalov@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.6.0",
+    "yiisoft/yii2": "~2.0.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "Brezgalov\\TablesLogs\\": "src/"
+    }
+  }
+}
