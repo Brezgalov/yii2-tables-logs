@@ -36,7 +36,7 @@ class TableLoggerForm extends Model
      */
     public static function createLog(array $params = [])
     {
-        return new self($params);
+        return new static($params);
     }
 
     /**
