@@ -113,8 +113,10 @@ class TableLoggerForm extends Model
             $this->logTable->user_agent = \Yii::$app->request->getUserAgent();
             $this->logTable->referer    = \Yii::$app->request->getReferrer();
 
-            $this->logTable->controller_name    = \Yii::$app->controller::className();
-            $this->logTable->action_name        = \Yii::$app->controller->action->id;
+            if (isset(\Yii::$app->controller)) {
+                $this->logTable->controller_name    = \Yii::$app->controller::className();
+                $this->logTable->action_name        = \Yii::$app->controller->action->id;
+            }
 
         } catch (\Exception $ex) {
             //silence is golden
