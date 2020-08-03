@@ -30,7 +30,7 @@ trait LoggerTrait
     /**
      * @return TableLogger
      */
-    private function getLogger()
+    protected function getLogger()
     {
         $loggerClass = $this->getTableLoggerClass();
         $logger = $loggerClass::createLog()->fromRecord($this, $this->logType);
