@@ -15,12 +15,12 @@ class TableLoggerForm extends Model
     /**
      * @var TablesLogs
      */
-    private $logTable;
+    protected $logTable;
 
     /**
      * @var TablesLogFields[]
      */
-    private $logTableFields = [];
+    protected $logTableFields = [];
 
     /**
      * @var array
