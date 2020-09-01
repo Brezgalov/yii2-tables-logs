@@ -31,6 +31,11 @@ class TableLoggerForm extends Model
     ];
 
     /**
+     * @var string
+     */
+    public $defaultLogType = TablesLogs::LOG_TYPE_DEFAULT;
+
+    /**
      * @param array $params
      * @return TableLoggerForm
      */
@@ -63,6 +68,15 @@ class TableLoggerForm extends Model
     }
 
     /**
+     * Дефолтный тип логов
+     * @return string
+     */
+    public function getDefaultLogType()
+    {
+        return $this->defaultLogType;
+    }
+
+    /**
      * @return integer|null
      */
     public function getCurrentUserId()
@@ -90,28 +104,75 @@ class TableLoggerForm extends Model
 
     /**
      * @param ActiveRecord $record
+     * @param null $logType
+     * @param null $primaryKeyField
      * @return $this
      */
-    public function fromRecord(ActiveRecord $record, $logType = null)
+    public function fromRecord(ActiveRecord $record, $logType = null, $primaryKeyField = null)
     {
-        $pKeys = array_keys($record->getPrimaryKey(true));
-        $pKey = array_shift($pKeys);
+        if (empty($primaryKeyField)) {
+            $pKeys = array_keys($record->getPrimaryKey(true));
+            $primaryKeyField = array_shift($pKeys);
+        }
 
-        $logModelClass          = $this->getLogsTableClass();
-        $logFieldsModelClass    = $this->getLogFieldsTableClass();
+        $this->prepareLogTable(
+            $record::tableName(),
+            $record::className(),
+            @$record->{$primaryKeyField} ?: null,
+            $logType
+        );
+
+        $this->prepareLogFields($record->toArray());
+
+        return $this;
+    }
+
+    /**
+     * Cборка лога из кастомной информации об обновляемой записи
+     *
+     * @param $tableName
+     * @param $className
+     * @param $recordId
+     * @param array $fields
+     * @param null $logType
+     */
+    public function fromCustomData($tableName, $className, $recordId, array $fields = [], $logType = null)
+    {
+        $this->prepareLogTable(
+            $tableName,
+            $className,
+            $recordId,
+            $logType
+        );
+
+        $this->prepareLogFields($fields);
+    }
+
+    /**
+     * Заполняет поле logTable свежим экземпляром лога
+     * @param $tableName
+     * @param $className
+     * @param $recordId
+     * @param $logType
+     */
+    protected function prepareLogTable($tableName, $className, $recordId, $logType = null)
+    {
+        $logModelClass = $this->getLogsTableClass();
 
         $this->logTable = new $logModelClass([
-            'table'         => $record::tableName(),
-            'class_name'    => $record::className(),
-            'record_id'     => @$record->{$pKey} ?: null,
+            'table'         => $tableName,
+            'class_name'    => $className,
+            'record_id'     => $recordId,
             'user_id'       => $this->getCurrentUserId(),
-            'log_type'      => $logType ?: TablesLogs::LOG_TYPE_DEFAULT,
+            'log_type'      => $logType ?: $this->getDefaultLogType(),
         ]);
 
         try {
-            $this->logTable->user_ip    = \Yii::$app->request->getUserIP();
-            $this->logTable->user_agent = \Yii::$app->request->getUserAgent();
-            $this->logTable->referer    = \Yii::$app->request->getReferrer();
+            if (isset(\Yii::$app->request)) {
+                $this->logTable->user_ip    = \Yii::$app->request->getUserIP();
+                $this->logTable->user_agent = \Yii::$app->request->getUserAgent();
+                $this->logTable->referer    = \Yii::$app->request->getReferrer();
+            }
 
             if (isset(\Yii::$app->controller)) {
                 $this->logTable->controller_name    = \Yii::$app->controller::className();
@@ -121,8 +182,21 @@ class TableLoggerForm extends Model
         } catch (\Exception $ex) {
             //silence is golden
         }
+    }
 
-        $recordArray = $this->removeIgnoredFields($record->toArray());
+    /**
+     * Подготовка записей логирующих измененные поля
+     * @param array $fields
+     */
+    protected function prepareLogFields(array $fields)
+    {
+        if (empty($fields)) {
+            return;
+        }
+
+        $recordArray = $this->removeIgnoredFields($fields);
+
+        $logFieldsModelClass    = $this->getLogFieldsTableClass();
 
         foreach ($recordArray as $key => $value) {
             $this->logTableFields[$key] = new $logFieldsModelClass([
@@ -130,8 +204,6 @@ class TableLoggerForm extends Model
                 'value' => is_string($value) ? $value : Json::encode($value),
             ]);
         }
-
-        return $this;
     }
 
     /**
