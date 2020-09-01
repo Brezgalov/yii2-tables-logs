@@ -135,6 +135,7 @@ class TableLoggerForm extends Model
      * @param $recordId
      * @param array $fields
      * @param null $logType
+     * @return $this
      */
     public function fromCustomData($tableName, $className, $recordId, array $fields = [], $logType = null)
     {
@@ -146,6 +147,8 @@ class TableLoggerForm extends Model
         );
 
         $this->prepareLogFields($fields);
+
+        return $this;
     }
 
     /**
