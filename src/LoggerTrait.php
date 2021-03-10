@@ -2,6 +2,12 @@
 
 namespace Brezgalov\TablesLogs;
 
+/**
+ * Trait LoggerTrait is deprecated
+ * Use LoggerBehavior
+ * @package Brezgalov\TablesLogs
+ * @deprecated
+ */
 trait LoggerTrait
 {
     /**
@@ -44,6 +50,7 @@ trait LoggerTrait
     }
 
     /**
+     * @deprecated
      * @return bool
      */
     public function logCreate()
@@ -52,6 +59,7 @@ trait LoggerTrait
     }
 
     /**
+     * @deprecated
      * @param $changedAttributes
      * @return bool
      */
@@ -65,6 +73,7 @@ trait LoggerTrait
     }
 
     /**
+     * @deprecated
      * @return bool
      */
     public function logDelete()

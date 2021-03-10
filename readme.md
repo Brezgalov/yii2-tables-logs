@@ -1,28 +1,44 @@
-##Как пользоваться
+## Как пользоваться
 
-1. Применить миграции
-2. Использовать LoggerTrait в модели ActiveRecord
+1. Подключить миграции в конфиге yii2:
+
+
+    'controllerMap' => [
+        'migrate-logger' => [
+            'class' => 'yii\console\controllers\MigrateController',
+            'migrationPath' => [
+                '@vendor/brezgalov/yii2-tables-logs/migrations'
+            ],
+        ],
+    ],
+
+
+2. Применить миграции
+   
+
+    php yii migrate-logger
+
+
+3. Использовать LoggerBehavior в модели ActiveRecord
 
 Пример использования:
 
     class Orders extends ActiveRecord
     {
-        use LoggerTrait;
-
-        public function afterSave($insert, $changedAttributes)
-        {    
-            if ($insert) {
-                $this->logCreate();
-            } else {
-                $this->logUpdate($changedAttributes);
-            }
+        public function behaviors()
+        {
+            return array_merge(parent::behaviors(), [
+                [
+                    'class' => LoggerBehavior::class,
+                ],
+            ]);
         }
     }
     
-##Использование в модулях и базах с префиксом
+## Использование в модулях и базах с префиксом
 **Пункт 1.** Унаследуйте базовые модели и пропишите между ними связи. В примере используется префикс таблиц "tq_" и подключение к БД "trucksQueueModuleDbConnection"    
     
-    class TablesLogFields extends \Brezgalov\TablesLogs\TablesLogFields
+    class MyTablesLogFields extends \Brezgalov\TablesLogs\TablesLogFields
     {
         /**
          * {@inheritdoc}
@@ -64,14 +80,14 @@
     
 **Пункт 2.** Унаследуйте TableLoggerForm и пропишите использование кастомных моделей
 
-    class TableLoggerForm extends \Brezgalov\TablesLogs\TableLoggerForm
+    class MyTableLoggerForm extends \Brezgalov\TablesLogs\TableLoggerForm
     {    
         /**
          * @return string
          */
         public function getLogFieldsTableClass()
         {
-            return TablesLogFields::class;
+            return MyTablesLogFields::class;
         }
     
         /**
@@ -79,37 +95,14 @@
          */
         public function getLogsTableClass()
         {
-            return TablesLogs::class;
+            return MyTablesLogs::class;
         }
     }
     
-**Пункт 3.** Используйте LoggerTrait с указанием кастомного логера:
+**Пункт 3.** Используйте LoggerBehavior с указанием кастомного логера:
 
 
-    class Quotas extends \app\modules\trucksqueue\models\base\Quotas
-    {
-        use LoggerTrait;
-        
-        /**
-         * @param bool $insert
-         * @param array $changedAttributes
-         */
-        public function afterSave($insert, $changedAttributes)
-        {
-            if ($insert) {
-                $this->logCreate();
-            } else {
-                $this->logUpdate($changedAttributes);
-            }
-    
-            parent::afterSave($insert, $changedAttributes);
-        }
-    
-        /**
-         * @return string
-         */
-        public function getTableLoggerClass()
-        {
-            return TableLoggerForm::class;
-        }
-    }
+    [   
+        'class' => LoggerBehavior::class,
+        'loggerClass' => MyTableLoggerForm::class,
+    ]

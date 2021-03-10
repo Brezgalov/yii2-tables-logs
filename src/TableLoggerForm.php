@@ -244,7 +244,7 @@ class TableLoggerForm extends Model
         }
 
         foreach ($this->logTableFields as $key => &$field) {
-            if ($action !== self::ACTION_CREATE && $field->value_previous === null) {
+            if ($action == static::ACTION_UPDATE && $field->value_previous === null) {
                 continue;
             }
 
