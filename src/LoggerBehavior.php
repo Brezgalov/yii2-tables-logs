@@ -67,11 +67,11 @@ class LoggerBehavior extends Behavior
             throw new \Exception('Логер должен быть унаследован от ' . TableLoggerForm::class);
         }
 
-        $loggerInstance->fromRecord($record, $this->logType);
-
         if (!empty($this->ignoredFields)) {
             $loggerInstance->ignoreFields($this->ignoredFields);
         }
+
+        $loggerInstance->fromRecord($record, $this->logType);
 
         return $loggerInstance;
     }
