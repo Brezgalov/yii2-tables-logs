@@ -84,6 +84,13 @@ class LoggerBehavior extends Behavior
 
     public function storeLogAfterUpdate(AfterSaveEvent $e)
     {
+        // string "1" and integer 1 meant different values and floods logging
+        foreach ($e->changedAttributes as $key => $val) {
+            if ($e->sender->{$key} == $val) {
+                unset($e->changedAttributes[$key]);
+            }
+        }
+
         $this->prepareLogger($e->sender)
             ->attributesChanged($e->changedAttributes)
             ->storeLog($this->updateActionName);
