@@ -6,6 +6,10 @@ use yii\base\Model;
 use yii\db\ActiveRecord;
 use yii\helpers\Json;
 
+/**
+ * Class TableLoggerForm
+ * @package Brezgalov\TablesLogs
+ */
 class TableLoggerForm extends Model
 {
     const ACTION_CREATE = 'create';
@@ -28,6 +32,7 @@ class TableLoggerForm extends Model
     public $fieldsToIgnore = [
         'id',
         'updated_at',
+        'created_at',
     ];
 
     /**
@@ -237,17 +242,30 @@ class TableLoggerForm extends Model
             return false;
         }
 
+        // Нужно задавать action через билдер ->action('update')
+        // Тогда можно будет не добавлять заведомо ненужные поля в attributesChanged
+        // @TODO: refactor
+
+        $isUpdate = $action == static::ACTION_UPDATE;
+
+        $logFields = $this->logTableFields;
+        foreach ($logFields as $key => &$field) {
+            if ($isUpdate && $field->value_previous === null) {
+                unset($logFields[$key]);
+            }
+        }
+
+        if ($isUpdate && empty($logFields)) {
+            return true;
+        }
+
         $this->logTable->action = $action;
         if (!$this->logTable->save()) {
             \Yii::error('Не удалось сохранить лог ' . Json::encode($this->logTable) . ' из-за ошибки: ' . Json::encode($this->logTable->getErrorSummary(1)));
             return false;
         }
 
-        foreach ($this->logTableFields as $key => &$field) {
-            if ($action == static::ACTION_UPDATE && $field->value_previous === null) {
-                continue;
-            }
-
+        foreach ($logFields as $key => &$field) {
             $field->log_id = $this->logTable->id;
 
             if (!$field->save()) {

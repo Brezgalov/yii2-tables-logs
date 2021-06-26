@@ -76,12 +76,20 @@ class LoggerBehavior extends Behavior
         return $loggerInstance;
     }
 
+    /**
+     * @param AfterSaveEvent $e
+     * @throws \Exception
+     */
     public function storeLogAfterInsert(AfterSaveEvent $e)
     {
         $this->prepareLogger($e->sender)
             ->storeLog($this->createActionName);
     }
 
+    /**
+     * @param AfterSaveEvent $e
+     * @throws \Exception
+     */
     public function storeLogAfterUpdate(AfterSaveEvent $e)
     {
         // string "1" and integer 1 meant different values and floods logging
@@ -91,11 +99,16 @@ class LoggerBehavior extends Behavior
             }
         }
 
-        $this->prepareLogger($e->sender)
+        $this
+            ->prepareLogger($e->sender)
             ->attributesChanged($e->changedAttributes)
             ->storeLog($this->updateActionName);
     }
 
+    /**
+     * @param Event $e
+     * @throws \Exception
+     */
     public function storeLogAfterDelete(Event $e)
     {
         $this->prepareLogger($e->sender)
