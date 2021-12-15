@@ -210,9 +210,16 @@ class TableLoggerForm extends Model
         $logFieldsModelClass    = $this->getLogFieldsTableClass();
 
         foreach ($recordArray as $key => $value) {
+            if (!is_null($value)) {
+                if (!is_string($value)) {
+                    $value = Json::encode($value);
+                }
+            }
+
             $this->logTableFields[$key] = new $logFieldsModelClass([
                 'key' => $key,
-                'value' => is_string($value) ? $value : Json::encode($value),
+                'value' => $value,
+                'value_previous' => $value,
             ]);
         }
     }
@@ -225,7 +232,18 @@ class TableLoggerForm extends Model
     {
         foreach ($attributes as $key => $value) {
             if (array_key_exists($key, $this->logTableFields) && $this->logTableFields[$key] instanceof TablesLogFields) {
-                $this->logTableFields[$key]->value_previous = (string)$attributes[$key];
+                $nextVal = null;
+
+                // NULL turns to "null" with string convert
+                if (!is_null($attributes[$key])) {
+                    $nextVal = $attributes[$key];
+
+                    if (!is_string($nextVal)) {
+                        $nextVal = Json::encode($nextVal);
+                    }
+                }
+
+                $this->logTableFields[$key]->value_previous = $nextVal;
             }
         }
         return $this;
@@ -250,7 +268,21 @@ class TableLoggerForm extends Model
 
         $logFields = $this->logTableFields;
         foreach ($logFields as $key => &$field) {
-            if ($isUpdate && $field->value_previous === null) {
+            // костыль
+            // Либа довольно старая, сейчас нет времени ее нормально рефакторить
+            // Раньше при создании полей value_previous заполнялось только в changedAttribures
+            // Из-за этого было не понятно какое поле обновилось с NULL до значения, а какое не изменилось
+            // Тут был unset
+            // Теперь при создании из записи мы сразу заполняем value_previous тем же, что и value
+            // А при создании просто не сохраняем эту инфу
+            // т.о можно сохранять только измененные поля без рефактора этого пакета
+
+            if ($action == static::ACTION_CREATE) {
+                $field->value_previous = null;
+            }
+
+            // значение изменилось, если оно разное. Тут был баг
+            if ($field->value_previous === $field->value) {
                 unset($logFields[$key]);
             }
         }
