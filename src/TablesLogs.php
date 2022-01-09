@@ -27,8 +27,6 @@ use yii\db\ActiveRecord;
  */
 class TablesLogs extends \yii\db\ActiveRecord
 {
-    const LOG_TYPE_DEFAULT = 'default';
-
     /**
      * {@inheritdoc}
      */

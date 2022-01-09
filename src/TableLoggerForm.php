@@ -4,6 +4,7 @@ namespace Brezgalov\TablesLogs;
 
 use yii\base\Model;
 use yii\db\ActiveRecord;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 
 /**
@@ -16,15 +17,22 @@ class TableLoggerForm extends Model
     const ACTION_UPDATE = 'update';
     const ACTION_DELETE = 'delete';
 
+    const LOG_TYPE_DEFAULT = 'default';
+
     /**
      * @var TablesLogs
      */
-    protected $logTable;
+    public $logTable;
+
+    /**
+     * @var string
+     */
+    public $logType = self::LOG_TYPE_DEFAULT;
 
     /**
      * @var TablesLogFields[]
      */
-    protected $logTableFields = [];
+    public $logTableFields = [];
 
     /**
      * @var array
@@ -36,9 +44,34 @@ class TableLoggerForm extends Model
     ];
 
     /**
+     * @var int
+     */
+    public $currentUserId;
+
+    /**
+     * @var bool
+     */
+    public $filterUnchengedAttributes = true;
+
+    /**
+     * @var bool
+     */
+    public $logOnNoChanges = false;
+
+    /**
+     * @var bool
+     */
+    public $ignoreRequestFetchErrors = true;
+
+    /**
+     * @var bool
+     */
+    public $ignoreControllerFetchErrors = true;
+
+    /**
      * @var string
      */
-    public $defaultLogType = TablesLogs::LOG_TYPE_DEFAULT;
+    public $defaultLogType = self::LOG_TYPE_DEFAULT;
 
     /**
      * @param array $params
@@ -50,23 +83,10 @@ class TableLoggerForm extends Model
     }
 
     /**
-     * @param array $data
-     * @return array
-     */
-    private function removeIgnoredFields(array $data)
-    {
-        foreach ($this->fieldsToIgnore as $field) {
-            unset($data[$field]);
-        }
-
-        return $data;
-    }
-
-    /**
      * @param array $fields
      * @return $this
      */
-    public function ignoreFields(array $fields)
+    public function setIgnoredFields(array $fields)
     {
         $this->fieldsToIgnore = $fields;
         return $this;
@@ -86,6 +106,10 @@ class TableLoggerForm extends Model
      */
     public function getCurrentUserId()
     {
+        if ($this->currentUserId) {
+            return $this->currentUserId;
+        }
+
         return isset(\Yii::$app->user) ? \Yii::$app->user->id : null;
     }
 
@@ -109,11 +133,10 @@ class TableLoggerForm extends Model
 
     /**
      * @param ActiveRecord $record
-     * @param null $logType
      * @param null $primaryKeyField
      * @return $this
      */
-    public function fromRecord(ActiveRecord $record, $logType = null, $primaryKeyField = null)
+    public function fromRecord(ActiveRecord $record, $primaryKeyField = null)
     {
         if (empty($primaryKeyField)) {
             $pKeys = array_keys($record->getPrimaryKey(true));
@@ -124,10 +147,56 @@ class TableLoggerForm extends Model
             $record::tableName(),
             $record::className(),
             @$record->{$primaryKeyField} ?: null,
-            $logType
+            $this->logType
         );
 
-        $this->prepareLogFields($record->toArray());
+        return $this;
+    }
+
+    /**
+     * @param $action
+     * @return $this
+     */
+    public function setAction($action)
+    {
+        if (empty($this->logTable)) {
+            throw new \Exception('logTable not instantinated');
+        }
+
+        $this->logTable->action = $action;
+
+        return $this;
+    }
+
+    /**
+     * @param $logType
+     * @return $this
+     */
+    public function setLogType($logType)
+    {
+        $this->logType = $logType;
+
+        return $this;
+    }
+
+    /**
+     * @param $value
+     * @return $this
+     */
+    public function setLogOnNoAttributes($value)
+    {
+        $this->logOnNoChanges = (bool)$value;
+
+        return $this;
+    }
+
+    /**
+     * @param $value
+     * @return $this
+     */
+    public function setFilterUnchangedAttributes($value)
+    {
+        $this->filterUnchengedAttributes = (bool)$value;
 
         return $this;
     }
@@ -138,22 +207,77 @@ class TableLoggerForm extends Model
      * @param $tableName
      * @param $className
      * @param $recordId
-     * @param array $fields
-     * @param null $logType
      * @return $this
      */
-    public function fromCustomData($tableName, $className, $recordId, array $fields = [], $logType = null)
+    public function fromCustomData($tableName, $className, $recordId)
     {
         $this->prepareLogTable(
             $tableName,
             $className,
             $recordId,
-            $logType
+            $this->logType
         );
 
-        $this->prepareLogFields($fields);
+        return $this;
+    }
+
+    /**
+     * @param array $values Values in format of [<field> => <value>]
+     * @return $this
+     */
+    public function setPreviousValues(array $values)
+    {
+        return $this->setLogFieldsValues($values, 'value_previous');
+    }
+
+    /**
+     * @param array $values Values in format of [<field> => <value>]
+     * @return $this
+     */
+    public function setCurrentValues(array $values)
+    {
+        return $this->setLogFieldsValues($values, 'value');
+    }
+
+    /**
+     * @param array $values
+     * @param $fieldToSet
+     * @return $this
+     * @throws \Exception
+     */
+    protected function setLogFieldsValues(array $values, $fieldToSet)
+    {
+        // Это более эффективно, чем каждый раз делать if in_array($fieldName, $this->fieldsToIgnore)
+        foreach ($this->fieldsToIgnore as $field) {
+            unset($values[$field]);
+        }
+
+        foreach ($values as $fieldName => $value) {
+            $fieldLog = $this->getLogField($fieldName);
+
+            $fieldLog->{$fieldToSet} = $value;
+
+            $this->logTableFields[$fieldName] = $fieldLog;
+        }
 
         return $this;
+    }
+
+    /**
+     * @param $fieldName
+     * @return TablesLogFields|mixed
+     * @throws \Exception
+     */
+    protected function getLogField($fieldName)
+    {
+        $log = ArrayHelper::getValue($this->logTableFields, $fieldName);
+
+        if (empty($log)) {
+            $log = new TablesLogFields();
+            $log->key = $fieldName;
+        }
+
+        return $log;
     }
 
     /**
@@ -173,6 +297,7 @@ class TableLoggerForm extends Model
             'record_id'     => $recordId,
             'user_id'       => $this->getCurrentUserId(),
             'log_type'      => $logType ?: $this->getDefaultLogType(),
+            'action'        => static::ACTION_CREATE,
         ]);
 
         try {
@@ -182,116 +307,51 @@ class TableLoggerForm extends Model
                 $this->logTable->referer    = \Yii::$app->request->getReferrer();
             }
         } catch (\Exception $ex) {
-            //silence is golden
+            if (!$this->ignoreRequestFetchErrors) {
+                throw $ex;
+            }
         }
 
         try {
             if (isset(\Yii::$app->controller)) {
                 $this->logTable->controller_name    = \Yii::$app->controller::className();
-                $this->logTable->action_name        = \Yii::$app->controller->action->id;
+
+                if (isset(\Yii::$app->controller->action)) {
+                    $this->logTable->action_name = \Yii::$app->controller->action->id;
+                }
             }
         }  catch (\Exception $ex) {
-            //silence is golden
-        }
-    }
-
-    /**
-     * Подготовка записей логирующих измененные поля
-     * @param array $fields
-     */
-    protected function prepareLogFields(array $fields)
-    {
-        if (empty($fields)) {
-            return;
-        }
-
-        $recordArray = $this->removeIgnoredFields($fields);
-
-        $logFieldsModelClass    = $this->getLogFieldsTableClass();
-
-        foreach ($recordArray as $key => $value) {
-            if (!is_null($value)) {
-                if (!is_string($value)) {
-                    $value = Json::encode($value);
-                }
-            }
-
-            $this->logTableFields[$key] = new $logFieldsModelClass([
-                'key' => $key,
-                'value' => $value,
-                'value_previous' => $value,
-            ]);
-        }
-    }
-
-    /**
-     * @param array $attributes
-     * @return $this
-     */
-    public function attributesChanged(array $attributes)
-    {
-        foreach ($attributes as $key => $value) {
-            if (array_key_exists($key, $this->logTableFields) && $this->logTableFields[$key] instanceof TablesLogFields) {
-                $nextVal = null;
-
-                // NULL turns to "null" with string convert
-                if (!is_null($attributes[$key])) {
-                    $nextVal = $attributes[$key];
-
-                    if (!is_string($nextVal)) {
-                        $nextVal = Json::encode($nextVal);
-                    }
-                }
-
-                $this->logTableFields[$key]->value_previous = $nextVal;
+            if (!$this->ignoreControllerFetchErrors) {
+                throw $ex;
             }
         }
-        return $this;
     }
 
     /**
-     * @param string $action
      * @return bool
      */
-    public function storeLog($action = 'create')
+    public function storeLog()
     {
         if (empty($this->logTable) || !($this->logTable instanceof TablesLogs)) {
             \Yii::error('Попытка сохранить лог без лога');
             return false;
         }
 
-        // Нужно задавать action через билдер ->action('update')
-        // Тогда можно будет не добавлять заведомо ненужные поля в attributesChanged
-        // @TODO: refactor
-
-        $isUpdate = $action == static::ACTION_UPDATE;
-
         $logFields = $this->logTableFields;
-        foreach ($logFields as $key => &$field) {
-            // костыль
-            // Либа довольно старая, сейчас нет времени ее нормально рефакторить
-            // Раньше при создании полей value_previous заполнялось только в changedAttribures
-            // Из-за этого было не понятно какое поле обновилось с NULL до значения, а какое не изменилось
-            // Тут был unset
-            // Теперь при создании из записи мы сразу заполняем value_previous тем же, что и value
-            // А при создании просто не сохраняем эту инфу
-            // т.о можно сохранять только измененные поля без рефактора этого пакета
 
-            if ($action == static::ACTION_CREATE) {
-                $field->value_previous = null;
-            }
-
-            // значение изменилось, если оно разное. Тут был баг
-            if ($field->value_previous === $field->value) {
-                unset($logFields[$key]);
+        if ($this->filterUnchengedAttributes) {
+            foreach ($logFields as $fieldName => $field) {
+                if ($field->value == $field->value_previous) {
+                    unset($logFields[$fieldName]);
+                }
             }
         }
 
-        if ($isUpdate && empty($logFields)) {
+        // Не сохраняем лог, если не было изменений в полях
+        if (!$this->logOnNoChanges && empty($logFields)) {
             return true;
         }
 
-        $this->logTable->action = $action;
         if (!$this->logTable->save()) {
             \Yii::error('Не удалось сохранить лог ' . Json::encode($this->logTable) . ' из-за ошибки: ' . Json::encode($this->logTable->getErrorSummary(1)));
             return false;

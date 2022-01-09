@@ -17,7 +17,7 @@ class LoggerBehavior extends Behavior
     /**
      * @var string
      */
-    public $loggerClass = TableLoggerForm::class;
+    public $logger = TableLoggerForm::class;
 
     /**
      * @var string[]
@@ -25,9 +25,19 @@ class LoggerBehavior extends Behavior
     public $ignoredFields = ['id'];
 
     /**
+     * @var bool
+     */
+    public $filterUnchangedFieldsOnUpdate = true;
+
+    /**
+     * @var bool
+     */
+    public $logAttributesOnDelete = false;
+
+    /**
      * @var string
      */
-    public $logType = 'default';
+    public $logType = TableLoggerForm::LOG_TYPE_DEFAULT;
 
     /**
      * @var string
@@ -60,20 +70,20 @@ class LoggerBehavior extends Behavior
      * @param ActiveRecord $record
      * @return TableLoggerForm
      */
-    public function prepareLogger(ActiveRecord $record)
+    protected function prepareLogger(ActiveRecord $record)
     {
-        $loggerInstance = \Yii::$container->get($this->loggerClass);
+        $loggerInstance = \Yii::createObject($this->logger);
         if (!($loggerInstance instanceof TableLoggerForm)) {
             throw new \Exception('Логер должен быть унаследован от ' . TableLoggerForm::class);
         }
 
         if (!empty($this->ignoredFields)) {
-            $loggerInstance->ignoreFields($this->ignoredFields);
+            $loggerInstance->setIgnoredFields($this->ignoredFields);
         }
 
-        $loggerInstance->fromRecord($record, $this->logType);
-
-        return $loggerInstance;
+        return $loggerInstance
+            ->setLogType($this->logType)
+            ->fromRecord($record);
     }
 
     /**
@@ -83,7 +93,11 @@ class LoggerBehavior extends Behavior
     public function storeLogAfterInsert(AfterSaveEvent $e)
     {
         $this->prepareLogger($e->sender)
-            ->storeLog($this->createActionName);
+            ->setAction($this->createActionName)
+            ->setFilterUnchangedAttributes(false) // Не нужно проверять изменилось значение или нет, если его раньше 100% не было
+            ->setLogOnNoAttributes(true) // Записи у которых нет ничего кроме полей, которые не логируются (например id), тоже должны попасть в лог
+            ->setCurrentValues($e->sender->attributes)
+            ->storeLog();
     }
 
     /**
@@ -92,17 +106,37 @@ class LoggerBehavior extends Behavior
      */
     public function storeLogAfterUpdate(AfterSaveEvent $e)
     {
-        // string "1" and integer 1 meant different values and floods logging
-        foreach ($e->changedAttributes as $key => $val) {
-            if ($e->sender->{$key} == $val) {
-                unset($e->changedAttributes[$key]);
-            }
-        }
+        /**
+         * oldAttributes в ActiveRecord сбрасываются после Save и начинают соответствовать текущим
+         *
+         * Можно было бы сделать
+         * $oldAttributes = array_merge($e->sender->attributes, $e->changedAttributes);
+         * $this->setCurrentValues($e->sender->attributes)->setPreviousValues($oldAttributes)
+         *
+         * Представим что полей 25, а изменилось 1
+         * Тогда мы заведомо 2 раза подряд записываем одинаковые значения 24 полей в память,
+         * чтобы перед сохранением очистить их - бред
+         *
+         * Хочу чтобы в логер попадали только поля, которые подверглись изменению
+         */
 
-        $this
-            ->prepareLogger($e->sender)
-            ->attributesChanged($e->changedAttributes)
-            ->storeLog($this->updateActionName);
+        $loger = $this->prepareLogger($e->sender)->setAction($this->updateActionName);
+
+        if ($this->filterUnchangedFieldsOnUpdate) {
+            $fieldsChanged = array_keys($e->changedAttributes);
+            $attributes = $e->sender->toArray($fieldsChanged);
+
+            $loger->setCurrentValues($attributes)->setPreviousValues($e->changedAttributes);
+        } else {
+            $oldAttributes = array_merge($e->sender->attributes, $e->changedAttributes);
+
+            $loger
+                ->setCurrentValues($e->sender->attributes)
+                ->setPreviousValues($oldAttributes)
+                ->setFilterUnchangedAttributes(false);
+        };
+
+        $loger->storeLog();
     }
 
     /**
@@ -111,7 +145,17 @@ class LoggerBehavior extends Behavior
      */
     public function storeLogAfterDelete(Event $e)
     {
-        $this->prepareLogger($e->sender)
-            ->storeLog($this->deleteActionName);
+        $loger = $this->prepareLogger($e->sender)
+            ->setAction($this->deleteActionName)
+            ->setLogOnNoAttributes(true);
+
+        if ($this->logAttributesOnDelete) {
+            $loger
+                ->setPreviousValues($e->sender->attributes)
+                ->setCurrentValues($e->sender->attributes)
+                ->setFilterUnchangedAttributes(false);
+        }
+
+        $loger->storeLog();
     }
 }
