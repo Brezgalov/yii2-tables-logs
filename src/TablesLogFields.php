@@ -32,9 +32,8 @@ class TablesLogFields extends \yii\db\ActiveRecord
     {
         return [
             [['log_id'], 'required'],
-            [['log_id'], 'integer'],
-            [['key', 'value', 'value_previous'], 'string', 'max' => 255],
-            [['log_id'], 'exist', 'skipOnError' => true, 'targetClass' => TablesLogs::className(), 'targetAttribute' => ['log_id' => 'id']],
+            [['key', 'value', 'value_previous'], 'safe'],
+            [['log_id'], 'exist', 'skipOnError' => true, 'targetClass' => TablesLogs::class, 'targetAttribute' => ['log_id' => 'id']],
         ];
     }
 
@@ -57,6 +56,6 @@ class TablesLogFields extends \yii\db\ActiveRecord
      */
     public function getLog()
     {
-        return $this->hasOne(TablesLogs::className(), ['id' => 'log_id']);
+        return $this->hasOne(TablesLogs::class, ['id' => 'log_id']);
     }
 }

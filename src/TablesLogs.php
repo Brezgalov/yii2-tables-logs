@@ -93,6 +93,6 @@ class TablesLogs extends \yii\db\ActiveRecord
      */
     public function getTablesLogFields()
     {
-        return $this->hasMany(TablesLogFields::className(), ['log_id' => 'id']);
+        return $this->hasMany(TablesLogFields::class, ['log_id' => 'id']);
     }
 }
