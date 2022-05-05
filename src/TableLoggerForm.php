@@ -20,7 +20,7 @@ class TableLoggerForm extends Model
     const LOG_TYPE_DEFAULT = 'default';
 
     /**
-     * @var TablesLogs
+     * @var TableLogDto
      */
     public $logTable;
 
@@ -74,6 +74,24 @@ class TableLoggerForm extends Model
     public $defaultLogType = self::LOG_TYPE_DEFAULT;
 
     /**
+     * @var ILogStorage
+     */
+    public $logStorage;
+
+    /**
+     * TableLoggerForm constructor.
+     * @param array $config
+     */
+    public function __construct($config = [])
+    {
+        parent::__construct($config);
+
+        if (empty($this->logStorage)) {
+            $this->logStorage = new DbLogStorage();
+        }
+    }
+
+    /**
      * @param array $fields
      * @return $this
      */
@@ -101,16 +119,7 @@ class TableLoggerForm extends Model
             return $this->currentUserId;
         }
 
-        return isset(\Yii::$app->user) ? \Yii::$app->user->id : null;
-    }
-
-    /**
-     * return ActiveRecord model class name representing log record
-     * @return string
-     */
-    public function getLogsTableClass()
-    {
-        return TablesLogs::class;
+        return \Yii::$app->has('user') ? \Yii::$app->user->id : null;
     }
 
     /**
@@ -251,19 +260,16 @@ class TableLoggerForm extends Model
      */
     protected function prepareLogTable($tableName, $className, $recordId, $logType = null)
     {
-        $logModelClass = $this->getLogsTableClass();
+        $this->logTable->table = $this->logStorage->quoteTableName($tableName);
 
-        $this->logTable = new $logModelClass([
-            'table'         => $tableName,
-            'class_name'    => $className,
-            'record_id'     => $recordId,
-            'user_id'       => $this->getCurrentUserId(),
-            'log_type'      => $logType ?: $this->getDefaultLogType(),
-            'action'        => static::ACTION_CREATE,
-        ]);
+        $this->logTable->className = $className;
+        $this->logTable->recordId = $recordId;
+        $this->logTable->userId = $this->getCurrentUserId();
+        $this->logType = $logType ?: $this->getDefaultLogType();
+        $this->logTable->action = static::ACTION_CREATE;
 
         try {
-            if (isset(\Yii::$app->request)) {
+            if (\Yii::$app->has('request')) {
                 $this->logTable->user_ip    = \Yii::$app->request->getUserIP();
                 $this->logTable->user_agent = \Yii::$app->request->getUserAgent();
                 $this->logTable->referer    = \Yii::$app->request->getReferrer();
@@ -276,7 +282,7 @@ class TableLoggerForm extends Model
 
         try {
             if (isset(\Yii::$app->controller)) {
-                $this->logTable->controller_name    = \Yii::$app->controller::className();
+                $this->logTable->controller_name = \Yii::$app->controller::className();
 
                 if (isset(\Yii::$app->controller->action)) {
                     $this->logTable->action_name = \Yii::$app->controller->action->id;
@@ -314,16 +320,32 @@ class TableLoggerForm extends Model
             return true;
         }
 
-        if (!$this->logTable->save()) {
-            \Yii::error('Не удалось сохранить лог ' . Json::encode($this->logTable) . ' из-за ошибки: ' . Json::encode($this->logTable->getErrorSummary(1)));
+        $exError = null;
+
+        try {
+            $logSaved = $this->logStorage->storeLog($this->logTable);
+        } catch (\Exception $ex) {
+            $exError = "[{$ex->getCode()}] {$ex->getMessage()} ({$ex->getFile()}:{$ex->getLine()})";
+        }
+
+        if (!$logSaved) {
+            \Yii::error('Не удалось сохранить лог ' . Json::encode($this->logTable) . ($exError ? " {$exError}" : ''));
             return false;
         }
 
         foreach ($logFields as $key => &$field) {
             $field->log_id = $this->logTable->id;
 
-            if (!$field->save()) {
-                \Yii::error('Не удалось сохранить поле ' . $key . ' в логе: ' . Json::encode($field->getErrorSummary(1)));
+            $exErrorField = null;
+
+            try {
+                $fieldSaved = $this->logStorage->storeLogFields($field);
+            } catch (\Exception $ex) {
+                $exErrorField = "[{$ex->getCode()}] {$ex->getMessage()} ({$ex->getFile()}:{$ex->getLine()})";
+            }
+
+            if (!$fieldSaved) {
+                \Yii::error('Не удалось сохранить поле ' . $key . ' в логе: ' . ($exErrorField ? " {$exErrorField}" : ''));
             }
         }
 

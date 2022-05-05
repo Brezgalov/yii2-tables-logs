@@ -115,12 +115,14 @@ class LoggerBehavior extends Behavior
          *
          * Представим что полей 25, а изменилось 1
          * Тогда мы заведомо 2 раза подряд записываем одинаковые значения 24 полей в память,
-         * чтобы перед сохранением очистить их - бред
+         * чтобы пройти по ним циклом и удалить совпадения
          *
-         * Хочу чтобы в логер попадали только поля, которые подверглись изменению
+         * Вместо этого можно взять сразу только измененные поля
          */
 
-        $loger = $this->prepareLogger($e->sender)->setAction($this->updateActionName);
+        $loger = $this
+            ->prepareLogger($e->sender)
+            ->setAction($this->updateActionName);
 
         if ($this->filterUnchangedFieldsOnUpdate) {
             $fieldsChanged = array_keys($e->changedAttributes);
