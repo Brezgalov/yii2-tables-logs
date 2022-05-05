@@ -74,15 +74,6 @@ class TableLoggerForm extends Model
     public $defaultLogType = self::LOG_TYPE_DEFAULT;
 
     /**
-     * @param array $params
-     * @return TableLoggerForm
-     */
-    public static function createLog(array $params = [])
-    {
-        return new static($params);
-    }
-
-    /**
      * @param array $fields
      * @return $this
      */
@@ -120,15 +111,6 @@ class TableLoggerForm extends Model
     public function getLogsTableClass()
     {
         return TablesLogs::class;
-    }
-
-    /**
-     * return ActiveRecord model class name representing fields of log record
-     * @return string
-     */
-    public function getLogFieldsTableClass()
-    {
-        return TablesLogFields::class;
     }
 
     /**
@@ -197,26 +179,6 @@ class TableLoggerForm extends Model
     public function setFilterUnchangedAttributes($value)
     {
         $this->filterUnchengedAttributes = (bool)$value;
-
-        return $this;
-    }
-
-    /**
-     * Cборка лога из кастомной информации об обновляемой записи
-     *
-     * @param $tableName
-     * @param $className
-     * @param $recordId
-     * @return $this
-     */
-    public function fromCustomData($tableName, $className, $recordId)
-    {
-        $this->prepareLogTable(
-            $tableName,
-            $className,
-            $recordId,
-            $this->logType
-        );
 
         return $this;
     }
