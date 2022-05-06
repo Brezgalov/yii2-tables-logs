@@ -73,6 +73,8 @@ class DbLogStorage extends Component implements ILogStorage
      */
     public function storeLog(TableLogDto $logDto)
     {
+        $logDto->createdAt = date('Y-m-d H:i:s');
+        
         $data = $logDto->toArray();
 
         $storeRes = $this->getConnection()->getSchema()->insert(

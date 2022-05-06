@@ -198,7 +198,7 @@ class TableLoggerForm extends Model
      */
     public function setPreviousValues(array $values)
     {
-        return $this->setLogFieldsValues($values, 'value_previous');
+        return $this->setLogFieldsValues($values, 'valuePrevious');
     }
 
     /**
@@ -244,7 +244,7 @@ class TableLoggerForm extends Model
         $log = ArrayHelper::getValue($this->logTableFields, $fieldName);
 
         if (empty($log)) {
-            $log = new TablesLogFields();
+            $log = new TableLogFieldDto();
             $log->key = $fieldName;
         }
 
@@ -260,18 +260,20 @@ class TableLoggerForm extends Model
      */
     protected function prepareLogTable($tableName, $className, $recordId, $logType = null)
     {
+        $this->logTable = new TableLogDto();
+
         $this->logTable->table = $this->logStorage->quoteTableName($tableName);
 
         $this->logTable->className = $className;
         $this->logTable->recordId = $recordId;
         $this->logTable->userId = $this->getCurrentUserId();
-        $this->logType = $logType ?: $this->getDefaultLogType();
+        $this->logTable->logType = $logType ?: $this->getDefaultLogType();
         $this->logTable->action = static::ACTION_CREATE;
 
         try {
             if (\Yii::$app->has('request')) {
-                $this->logTable->user_ip    = \Yii::$app->request->getUserIP();
-                $this->logTable->user_agent = \Yii::$app->request->getUserAgent();
+                $this->logTable->userIp    = \Yii::$app->request->getUserIP();
+                $this->logTable->userAgent = \Yii::$app->request->getUserAgent();
                 $this->logTable->referer    = \Yii::$app->request->getReferrer();
             }
         } catch (\Exception $ex) {
@@ -282,10 +284,10 @@ class TableLoggerForm extends Model
 
         try {
             if (isset(\Yii::$app->controller)) {
-                $this->logTable->controller_name = \Yii::$app->controller::className();
+                $this->logTable->controllerName = \Yii::$app->controller::className();
 
                 if (isset(\Yii::$app->controller->action)) {
-                    $this->logTable->action_name = \Yii::$app->controller->action->id;
+                    $this->logTable->actionName = \Yii::$app->controller->action->id;
                 }
             }
         }  catch (\Exception $ex) {
@@ -300,7 +302,7 @@ class TableLoggerForm extends Model
      */
     public function storeLog()
     {
-        if (empty($this->logTable) || !($this->logTable instanceof TablesLogs)) {
+        if (empty($this->logTable)) {
             \Yii::error('Попытка сохранить лог без лога');
             return false;
         }
@@ -309,7 +311,7 @@ class TableLoggerForm extends Model
 
         if ($this->filterUnchengedAttributes) {
             foreach ($logFields as $fieldName => $field) {
-                if ($field->value == $field->value_previous) {
+                if ($field->value == $field->valuePrevious) {
                     unset($logFields[$fieldName]);
                 }
             }
@@ -321,6 +323,7 @@ class TableLoggerForm extends Model
         }
 
         $exError = null;
+        $logSaved = false;
 
         try {
             $logSaved = $this->logStorage->storeLog($this->logTable);
@@ -334,9 +337,10 @@ class TableLoggerForm extends Model
         }
 
         foreach ($logFields as $key => &$field) {
-            $field->log_id = $this->logTable->id;
+            $field->logId = $this->logTable->id;
 
             $exErrorField = null;
+            $fieldSaved = false;
 
             try {
                 $fieldSaved = $this->logStorage->storeLogFields($field);

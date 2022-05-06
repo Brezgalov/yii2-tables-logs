@@ -4,11 +4,30 @@ namespace Brezgalov\TablesLogs;
 
 class TableLogFieldDto
 {
+    /**
+     * @var int
+     */
     public $id;
-    public $log_id;
+
+    /**
+     * @var int
+     */
+    public $logId;
+
+    /**
+     * @var string
+     */
     public $key;
+
+    /**
+     * @var string
+     */
     public $value;
-    public $value_previous;
+
+    /**
+     * @var string
+     */
+    public $valuePrevious;
 
     /**
      * @return string[]
@@ -16,11 +35,11 @@ class TableLogFieldDto
     public function toArray()
     {
         return [
-            'id',
-            'log_id',
-            'key',
-            'value',
-            'value_previous',
+            'id' => $this->id,
+            'log_id' => $this->logId,
+            'key' => $this->key,
+            'value' => $this->value,
+            'value_previous' => $this->valuePrevious,
         ];
     }
 }
