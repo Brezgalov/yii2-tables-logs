@@ -75,11 +75,14 @@ class DbLogStorage extends Component implements ILogStorage
     {
         $logDto->createdAt = date('Y-m-d H:i:s');
         
-        $data = $logDto->toArray();
+        $logData = $logDto->toArray();
+        if ($logData['table']) {
+            $logData['table'] = $this->quoteTableName($logData['table']);
+        }
 
         $storeRes = $this->getConnection()->getSchema()->insert(
             $this->getLogsTableName(),
-            $logDto->toArray()
+            $logData
         );
 
         $id = $storeRes[$this->getPKField()] ?? false;
