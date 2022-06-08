@@ -37,9 +37,9 @@ class DbLogStorage extends Component implements ILogStorage
      * @param string $tableName
      * @return string
      */
-    public function quoteTableName(string $tableName)
+    public function getRawTableName(string $tableName)
     {
-        return $this->getConnection()->quoteTableName($tableName);
+        return $this->getConnection()->getSchema()->getRawTableName($tableName);
     }
     
     /**
@@ -47,7 +47,7 @@ class DbLogStorage extends Component implements ILogStorage
      */
     public function getLogsTableName()
     {
-        return $this->quoteTableName('{{%tables_logs}}');
+        return '{{%tables_logs}}';
     }
 
     /**
@@ -55,7 +55,7 @@ class DbLogStorage extends Component implements ILogStorage
      */
     public function getLogFieldsTableName()
     {
-        return $this->quoteTableName('{{%tables_log_fields}}');
+        return '{{%tables_log_fields}}';
     }
 
     /**
@@ -77,7 +77,7 @@ class DbLogStorage extends Component implements ILogStorage
         
         $logData = $logDto->toArray();
         if ($logData['table']) {
-            $logData['table'] = $this->quoteTableName($logData['table']);
+            $logData['table'] = $this->getRawTableName($logData['table']);
         }
 
         $storeRes = $this->getConnection()->getSchema()->insert(
@@ -100,8 +100,6 @@ class DbLogStorage extends Component implements ILogStorage
      */
     public function storeLogFields(TableLogFieldDto $logFieldDto)
     {
-        $data = $logFieldDto->toArray();
-
         $storeRes = $this->getConnection()->getSchema()->insert(
             $this->getLogFieldsTableName(),
             $logFieldDto->toArray()

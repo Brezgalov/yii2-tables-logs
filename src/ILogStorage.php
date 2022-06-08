@@ -20,5 +20,5 @@ interface ILogStorage
      * @param string $tableName
      * @return string
      */
-    public function quoteTableName(string $tableName);
+    public function getRawTableName(string $tableName);
 }

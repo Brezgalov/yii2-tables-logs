@@ -262,7 +262,7 @@ class TableLoggerForm extends Model
     {
         $this->logTable = new TableLogDto();
 
-        $this->logTable->table = $this->logStorage->quoteTableName($tableName);
+        $this->logTable->table = $this->logStorage->getRawTableName($tableName);
 
         $this->logTable->className = $className;
         $this->logTable->recordId = $recordId;
